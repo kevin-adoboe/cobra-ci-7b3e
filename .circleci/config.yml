@@ -1,0 +1,33 @@
+version: 2.1
+
+jobs:
+  test:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - checkout
+
+      # go.mod declares `go 1.15`, but that directive is this library's minimum
+      # supported version, not a version the suite can actually be built with:
+      # the tests call os.WriteFile / os.CreateTemp / os.MkdirTemp (added in Go
+      # 1.16), and deps require up to go 1.18. So install `stable` rather than
+      # using `--version-file go.mod`. Pin to e.g. `--version 1.27` if you'd
+      # rather not track new Go releases automatically.
+      - run:
+          name: Set up Go
+          command: circleci run circleci/setup-go@0.0.11-94c150b -- install --version stable
+
+      # mod-download restores and saves the module cache itself; no
+      # restore_cache/save_cache steps are needed around it.
+      - run:
+          name: Download modules
+          command: circleci run circleci/setup-go@0.0.11-94c150b -- mod-download --checksum '{{ checksum "go.sum" }}'
+
+      - run:
+          name: Test
+          command: circleci run circleci/setup-go@0.0.11-94c150b -- test --project-path .
+
+workflows:
+  test:
+    jobs:
+      - test
